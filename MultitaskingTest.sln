@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.6.33829.357
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MultitaskingTest", "MultitaskingTest\MultitaskingTest.csproj", "{C86C987E-5FCB-491D-9196-81AEEB976C4D}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C86C987E-5FCB-491D-9196-81AEEB976C4D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C86C987E-5FCB-491D-9196-81AEEB976C4D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C86C987E-5FCB-491D-9196-81AEEB976C4D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C86C987E-5FCB-491D-9196-81AEEB976C4D}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {0DB15115-0108-4E75-9DDB-47525B91BF4A}
+	EndGlobalSection
+EndGlobal
