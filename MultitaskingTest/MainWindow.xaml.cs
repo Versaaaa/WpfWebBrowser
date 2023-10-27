@@ -1,4 +1,5 @@
-﻿using MultitaskingTest.Models;
+﻿using mshtml;
+using MultitaskingTest.Models;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -17,6 +18,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using System.Xml.Linq;
 using static System.Net.WebRequestMethods;
 
 namespace MultitaskingTest
@@ -36,6 +38,7 @@ namespace MultitaskingTest
             NewTab();
             GeneratorTab();
             TabController.SelectionChanged += ChangedTab;
+            TabController.SizeChanged += TabResize;
         }
 
         public static void HideScriptErrors(WebBrowser wb, bool hide=true)
@@ -49,18 +52,26 @@ namespace MultitaskingTest
                 return;
             }
             objComWebBrowser.GetType().InvokeMember("Silent", BindingFlags.SetProperty, null, objComWebBrowser, new object[] { hide });
+        }
 
+        public void TabResize(object sender, RoutedEventArgs e)
+        {
+            for(int i = 0; i < TabController.Items.Count - 1; i++)
+            {
+                webTabs[i].Width = (TabController.ActualWidth - 21) / webTabs.Count;
+            }
         }
 
         public void ChangedTab(object sender, SelectionChangedEventArgs e)
         {
-            if (TabController.Items.Count == webTabs.Count && ((TabItem)TabController.Items[webTabs.Count - 1]).IsSelected)
+            if (TabController.Items.Count == webTabs.Count && webTabs[webTabs.Count - 1].IsSelected)
             {
                 TabController.Items.RemoveAt(webTabs.Count - 1);
                 webTabs.RemoveAt(webTabs.Count - 1);
                 NewTab();
                 GeneratorTab();
                 ((TabItem) TabController.Items[TabController.Items.Count-2]).IsSelected = true;
+                TabResize("", new RoutedEventArgs());
             }
         }
 
@@ -74,7 +85,6 @@ namespace MultitaskingTest
 
         public void NewTab()
         {
-
             Color FFE5E5E5 = new Color();
 
             WebBrowser webBrowser = new WebBrowser();
@@ -84,10 +94,12 @@ namespace MultitaskingTest
             Button refreshButton = new Button();
             TextBox searchBar = new TextBox();
 
-            WebPage newPage = new WebPage(webBrowser, forwardButton, backButton, searchBar);
-
             TabItem newTab = new TabItem();
-            newTab.Header = "TabItem";
+            newTab.Header = "New Tab";
+            newTab.Width = 200;
+            newTab.MaxWidth = 125;
+
+            WebPage newPage = new WebPage(webBrowser, forwardButton, backButton, searchBar, newTab);
 
             FFE5E5E5.R = 229;
             FFE5E5E5.G = 229;
@@ -95,7 +107,9 @@ namespace MultitaskingTest
             FFE5E5E5.A = 255;
 
             webBrowser.Margin = new Thickness(0, 26, 0, 0);
-            webBrowser.Navigated += newPage.LinkChanged;
+            webBrowser.Navigating += newPage.OnNavigating;
+            webBrowser.Navigated += newPage.OnNavigated;
+            webBrowser.LoadCompleted += newPage.OnLoaded;
             HideScriptErrors(webBrowser);
 
             backButton.HorizontalAlignment = HorizontalAlignment.Left;
@@ -105,8 +119,7 @@ namespace MultitaskingTest
             backButton.Width = 20;
             backButton.IsEnabled = false;
             backButton.Content = "<-";
-            backButton.Name = $"backButton{webPages.Count}";
-            backButton.Click += newPage.Back;
+            backButton.Click += newPage.OnBackButtonClick;
 
             forwardButton.HorizontalAlignment = HorizontalAlignment.Left;
             forwardButton.Margin = new Thickness(28, 3, 0, 0);
@@ -115,8 +128,7 @@ namespace MultitaskingTest
             forwardButton.Width = 20;
             forwardButton.IsEnabled = false;
             forwardButton.Content = "->";
-            forwardButton.Name = $"forwardButton{webPages.Count}";
-            forwardButton.Click += newPage.Forward;
+            forwardButton.Click += newPage.OnForwardButtonClick;
 
             refreshButton.HorizontalAlignment = HorizontalAlignment.Left;
             refreshButton.Margin = new Thickness(53, 3, 0, 0);
@@ -124,15 +136,13 @@ namespace MultitaskingTest
             refreshButton.Height = 20;
             refreshButton.Width = 20;
             refreshButton.Content = "@";
-            refreshButton.Name = $"refreshButton{webPages.Count}";
-            refreshButton.Click += newPage.Refresh;
+            refreshButton.Click += newPage.OnRefreshButtonClick;
 
             searchBar.Margin = new Thickness(85, 3, 29, 0);
             searchBar.VerticalAlignment = VerticalAlignment.Top;
             searchBar.Height = 20;
             searchBar.TextWrapping = TextWrapping.NoWrap;
-            searchBar.Name = $"searchBar{webPages.Count}"; 
-            searchBar.KeyDown += newPage.NavigateBar;
+            searchBar.KeyDown += newPage.OnNavigateBarEnter;
 
             grid.Background = new SolidColorBrush(FFE5E5E5);
             grid.Children.Add(backButton);
@@ -147,7 +157,7 @@ namespace MultitaskingTest
             webTabs.Add(newTab);
 
             TabController.Items.Add(webTabs[webTabs.Count-1]);
-
+            
         }
     }
 }

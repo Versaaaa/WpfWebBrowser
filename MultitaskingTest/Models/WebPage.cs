@@ -1,7 +1,9 @@
-﻿using System;
+﻿using mshtml;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -9,14 +11,13 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Navigation;
-using static System.Net.Mime.MediaTypeNames;
-using static System.Net.WebRequestMethods;
 
 namespace MultitaskingTest.Models
 {
     public class WebPage
     {
-        public int BufferLenght { get; set; } = 30;
+        public int BufferLenght { get; } = 30;
+        public int Redirects { get; set; } = -1;
         public List<string> BackBuffer { get; set; } = new List<string>();
         public List<string> ForwardBuffer { get; set; } = new List<string>();
         public string CurrentLink { get; set; } = "https://www.google.com/";
@@ -25,93 +26,110 @@ namespace MultitaskingTest.Models
         Button _forwardButton;
         Button _backButton;
         TextBox _searchBar;
+        TabItem _tabItem;
 
-        bool _AllowLinkChange = false;
+        bool _isNewLink = true;
 
-        public WebPage(WebBrowser webBrowser, Button forwardButton, Button backButton, TextBox searchBar)
+        public WebPage(WebBrowser webBrowser, Button forwardButton, Button backButton, TextBox searchBar, TabItem tabItem)
         {
             _webBrowser = webBrowser;
             _forwardButton = forwardButton;
             _backButton = backButton;
             _searchBar = searchBar;
-            Navigate();
+            _tabItem = tabItem;
+            Navigate(CurrentLink);
         }
 
-        public void LinkChanged(object sender, NavigationEventArgs e)
+        public void OnLoaded(object sender, EventArgs e)
         {
-            if (_AllowLinkChange)
+            _tabItem.Header = ((HTMLDocument)_webBrowser.Document).title;
+        }
+
+        public void OnNavigating(object sender, NavigatingCancelEventArgs e)
+        {
+            if (_isNewLink)
             {
                 _forwardButton.IsEnabled = false;
                 ForwardBuffer.Clear();
                 _backButton.IsEnabled = true;
                 BackBuffer.Add(CurrentLink);
+                if (BackBuffer.Count > BufferLenght)
+                {
+                    BackBuffer.RemoveAt(0);
+                }
+                Redirects += 1;
             }
-            CurrentLink = _webBrowser.Source.ToString();
+            CurrentLink = e.Uri.ToString();
             _searchBar.Text = CurrentLink;
-            _AllowLinkChange = true;
         }
 
-        public void NavigateBar(object sender, RoutedEventArgs e)
+        public void OnNavigated(object sender, NavigationEventArgs e)
+        {
+            if (_isNewLink && Redirects > 0)
+            {
+                if (Redirects > BufferLenght)
+                {
+                    Redirects = BufferLenght;
+                }
+                BackBuffer.RemoveRange(BackBuffer.Count - Redirects, Redirects);
+            }
+            Redirects = -1;
+            _isNewLink = true;
+        }
+
+        public void OnNavigateBarEnter(object sender, RoutedEventArgs e)
         {
             if (((KeyEventArgs)e).Key == Key.Enter) 
             { 
-                _forwardButton.IsEnabled = false;
-                ForwardBuffer.Clear();
-                _backButton.IsEnabled = true;
-                BackBuffer.Add(CurrentLink);
-
-                CurrentLink = ((TextBox)sender).Text;
+                var link = ((TextBox)sender).Text;
                 
-                Regex regex = new Regex(@"^(https?:\/\/)[a-zA-Z0-9]{2,}(\.[a-zA-Z0-9]{2,})(\.[a-zA-Z0-9]{2,})?((\/)(([^ ])+)?)?$", RegexOptions.IgnoreCase);
-                if (!regex.IsMatch(CurrentLink))
+                Regex regex = new Regex(@"^(https?:\/\/)(www\.)?[a-zA-Z0-9]{2,}(\.[a-zA-Z0-9]{2,})(\.[a-zA-Z0-9]{2,})?((\/)(([^ ])+)?)?$", RegexOptions.IgnoreCase);
+                if (!regex.IsMatch(link))
                 {
-                    CurrentLink = "https://www.google.com/search?q=" + CurrentLink;
+                    link = "https://www.google.com/search?q=" + link;
                 }
-
-                _AllowLinkChange = false;
-                
-                Navigate();
+                Redirects = -1;
+                Navigate(link);
             }
         }
 
-        public void Navigate(string link = "")
+        public void Navigate(string link)
         {
-            _webBrowser.Navigate(CurrentLink);
+            _webBrowser.Navigate(link);
         }
 
-        public void Back(object sender, RoutedEventArgs e)
+        public void OnBackButtonClick(object sender, RoutedEventArgs e)
         {
             _forwardButton.IsEnabled = true;
             ForwardBuffer.Add(CurrentLink);
-            CurrentLink = BackBuffer[BackBuffer.Count-1];
-            BackBuffer.Remove(CurrentLink);
+            var link = BackBuffer[BackBuffer.Count-1];
+            BackBuffer.Remove(link);
             if (BackBuffer.Count < 1)
             {
                 _backButton.IsEnabled = false;
             }
-            _AllowLinkChange = false;
-            Navigate();
+            _isNewLink = false;
+            Navigate(link);
         }
 
-        public void Forward(object sender, RoutedEventArgs e)
+        public void OnForwardButtonClick(object sender, RoutedEventArgs e)
         {
             _backButton.IsEnabled = true;
             BackBuffer.Add(CurrentLink);
-            CurrentLink = ForwardBuffer[ForwardBuffer.Count - 1];
-            ForwardBuffer.Remove(CurrentLink);
+            var link = ForwardBuffer[ForwardBuffer.Count - 1];
+            ForwardBuffer.Remove(link);
             if(ForwardBuffer.Count < 1)
             {
                 _forwardButton.IsEnabled = false;
             }
-            _AllowLinkChange = false;
-            Navigate();
+            _isNewLink = false;
+            Navigate(link);
         }
 
-        public void Refresh(object sender, RoutedEventArgs e)
+        public void OnRefreshButtonClick(object sender, RoutedEventArgs e)
         {
-            _AllowLinkChange = false;
-            Navigate();
+            _isNewLink = false;
+            Navigate(CurrentLink);
         }
-
     }
 }
