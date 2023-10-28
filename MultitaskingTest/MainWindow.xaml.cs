@@ -1,4 +1,5 @@
-﻿using mshtml;
+﻿using Microsoft.Web.WebView2.Wpf;
+using mshtml;
 using MultitaskingTest.Models;
 using System;
 using System.Collections.Generic;
@@ -88,6 +89,8 @@ namespace MultitaskingTest
             Color FFE5E5E5 = new Color();
 
             WebBrowser webBrowser = new WebBrowser();
+            WebView2 webView = new WebView2();
+
             Grid grid = new Grid();
             Button backButton = new Button();
             Button forwardButton = new Button();
@@ -99,7 +102,8 @@ namespace MultitaskingTest
             newTab.Width = 200;
             newTab.MaxWidth = 125;
 
-            WebPage newPage = new WebPage(webBrowser, forwardButton, backButton, searchBar, newTab);
+            //WebPage newPage = new WebPage(webBrowser, refreshButton,forwardButton, backButton, searchBar, newTab);
+            WebPage newPage = new WebPage(webView, refreshButton, forwardButton, backButton, searchBar, newTab);
 
             FFE5E5E5.R = 229;
             FFE5E5E5.G = 229;
@@ -112,44 +116,14 @@ namespace MultitaskingTest
             webBrowser.LoadCompleted += newPage.OnLoaded;
             HideScriptErrors(webBrowser);
 
-            backButton.HorizontalAlignment = HorizontalAlignment.Left;
-            backButton.Margin = new Thickness(3, 3, 0, 0);
-            backButton.VerticalAlignment = VerticalAlignment.Top;
-            backButton.Height = 20;
-            backButton.Width = 20;
-            backButton.IsEnabled = false;
-            backButton.Content = "<-";
-            backButton.Click += newPage.OnBackButtonClick;
-
-            forwardButton.HorizontalAlignment = HorizontalAlignment.Left;
-            forwardButton.Margin = new Thickness(28, 3, 0, 0);
-            forwardButton.VerticalAlignment = VerticalAlignment.Top;
-            forwardButton.Height = 20;
-            forwardButton.Width = 20;
-            forwardButton.IsEnabled = false;
-            forwardButton.Content = "->";
-            forwardButton.Click += newPage.OnForwardButtonClick;
-
-            refreshButton.HorizontalAlignment = HorizontalAlignment.Left;
-            refreshButton.Margin = new Thickness(53, 3, 0, 0);
-            refreshButton.VerticalAlignment = VerticalAlignment.Top;
-            refreshButton.Height = 20;
-            refreshButton.Width = 20;
-            refreshButton.Content = "@";
-            refreshButton.Click += newPage.OnRefreshButtonClick;
-
-            searchBar.Margin = new Thickness(85, 3, 29, 0);
-            searchBar.VerticalAlignment = VerticalAlignment.Top;
-            searchBar.Height = 20;
-            searchBar.TextWrapping = TextWrapping.NoWrap;
-            searchBar.KeyDown += newPage.OnNavigateBarEnter;
-
             grid.Background = new SolidColorBrush(FFE5E5E5);
             grid.Children.Add(backButton);
             grid.Children.Add(forwardButton);
             grid.Children.Add(refreshButton);
             grid.Children.Add(searchBar);
-            grid.Children.Add(webBrowser);
+            //grid.Children.Add(webBrowser);
+            grid.Children.Add(webView);
+
 
             newTab.Content = grid;
 
@@ -158,6 +132,11 @@ namespace MultitaskingTest
 
             TabController.Items.Add(webTabs[webTabs.Count-1]);
             
+        }
+
+        private void CoreWebView2_SourceChanged(object sender, Microsoft.Web.WebView2.Core.CoreWebView2SourceChangedEventArgs e)
+        {
+            throw new NotImplementedException();
         }
     }
 }

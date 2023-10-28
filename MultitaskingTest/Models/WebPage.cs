@@ -1,4 +1,6 @@
-﻿using mshtml;
+﻿using Microsoft.Web.WebView2.Core;
+using Microsoft.Web.WebView2.Wpf;
+using mshtml;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -23,29 +25,124 @@ namespace MultitaskingTest.Models
         public string CurrentLink { get; set; } = "https://www.google.com/";
 
         WebBrowser _webBrowser;
+        WebView2 _webView;
+        Button _refreshButton;
         Button _forwardButton;
         Button _backButton;
         TextBox _searchBar;
         TabItem _tabItem;
 
-        bool _isNewLink = true;
+        bool _isNewLink = false;
 
-        public WebPage(WebBrowser webBrowser, Button forwardButton, Button backButton, TextBox searchBar, TabItem tabItem)
+        public WebPage(WebBrowser webBrowser, Button refreshButton, Button forwardButton, Button backButton, TextBox searchBar, TabItem tabItem)
         {
             _webBrowser = webBrowser;
+            _refreshButton = refreshButton;
             _forwardButton = forwardButton;
             _backButton = backButton;
             _searchBar = searchBar;
             _tabItem = tabItem;
+            InitializeCommon();
+            Navigate(CurrentLink);
+        }
+        public WebPage(WebView2 webView, Button refreshButton, Button forwardButton, Button backButton, TextBox searchBar, TabItem tabItem)
+        {
+            _webView = webView;
+            _refreshButton = refreshButton;
+            _forwardButton = forwardButton;
+            _backButton = backButton;
+            _searchBar = searchBar;
+            _tabItem = tabItem;
+            Initialize();
+        }
+
+        public void InitializeCommon()
+        {
+            _backButton.HorizontalAlignment = HorizontalAlignment.Left;
+            _backButton.Margin = new Thickness(3, 3, 0, 0);
+            _backButton.VerticalAlignment = VerticalAlignment.Top;
+            _backButton.Height = 20;
+            _backButton.Width = 20;
+            _backButton.IsEnabled = false;
+            _backButton.Content = "<-";
+            _backButton.Click += OnBackButtonClick;
+
+            _forwardButton.HorizontalAlignment = HorizontalAlignment.Left;
+            _forwardButton.Margin = new Thickness(28, 3, 0, 0);
+            _forwardButton.VerticalAlignment = VerticalAlignment.Top;
+            _forwardButton.Height = 20;
+            _forwardButton.Width = 20;
+            _forwardButton.IsEnabled = false;
+            _forwardButton.Content = "->";
+            _forwardButton.Click += OnForwardButtonClick;
+
+            _refreshButton.HorizontalAlignment = HorizontalAlignment.Left;
+            _refreshButton.Margin = new Thickness(53, 3, 0, 0);
+            _refreshButton.VerticalAlignment = VerticalAlignment.Top;
+            _refreshButton.Height = 20;
+            _refreshButton.Width = 20;
+            _refreshButton.Content = "@";
+            _refreshButton.Click += OnRefreshButtonClick;
+
+            _searchBar.Margin = new Thickness(85, 3, 29, 0);
+            _searchBar.VerticalAlignment = VerticalAlignment.Top;
+            _searchBar.Height = 20;
+            _searchBar.TextWrapping = TextWrapping.NoWrap;
+            _searchBar.KeyDown += OnNavigateBarEnter;
+        }
+
+        public async void Initialize()
+        {
+            _webView.Margin = new Thickness(0, 26, 0, 0);
+
+            await _webView.EnsureCoreWebView2Async();
+
+            _webView.NavigationStarting += OnNavigationStarting;
+            _webView.SourceChanged += OnSourceChanged;
+            _webView.NavigationCompleted += OnNavigationComplete;
+
+            InitializeCommon();
             Navigate(CurrentLink);
         }
 
+
+        #region WebBrowser Events
+        public void OnNavigating(object sender, NavigatingCancelEventArgs e)
+        {
+            _OnNavigating(e.Uri.ToString());
+        }
+        public void OnNavigated(object sender, NavigationEventArgs e)
+        {
+            _OnNavigated();
+        }
         public void OnLoaded(object sender, EventArgs e)
         {
-            _tabItem.Header = ((HTMLDocument)_webBrowser.Document).title;
+            ChangeTitle(((HTMLDocument)_webBrowser.Document).title);
+        }
+        #endregion
+
+        #region WebView2 Events
+        public void OnNavigationStarting(object sender, CoreWebView2NavigationStartingEventArgs e)
+        {
+            _OnNavigating(e.Uri);
+        }
+        public void OnSourceChanged(object sender, CoreWebView2SourceChangedEventArgs e)
+        {
+            _OnNavigated();
+        }
+        public void OnNavigationComplete(object sender, CoreWebView2NavigationCompletedEventArgs e)
+        {
+            ChangeTitle(_webView.CoreWebView2.DocumentTitle);
+        } 
+        #endregion
+
+
+        public void ChangeTitle(string newTitle)
+        {
+            _tabItem.Header = newTitle;
         }
 
-        public void OnNavigating(object sender, NavigatingCancelEventArgs e)
+        public void _OnNavigating(string newUri)
         {
             if (_isNewLink)
             {
@@ -59,11 +156,10 @@ namespace MultitaskingTest.Models
                 }
                 Redirects += 1;
             }
-            CurrentLink = e.Uri.ToString();
+            CurrentLink = newUri;
             _searchBar.Text = CurrentLink;
         }
-
-        public void OnNavigated(object sender, NavigationEventArgs e)
+        public void _OnNavigated()
         {
             if (_isNewLink && Redirects > 0)
             {
@@ -76,6 +172,7 @@ namespace MultitaskingTest.Models
             Redirects = -1;
             _isNewLink = true;
         }
+
 
         public void OnNavigateBarEnter(object sender, RoutedEventArgs e)
         {
@@ -95,7 +192,15 @@ namespace MultitaskingTest.Models
 
         public void Navigate(string link)
         {
-            _webBrowser.Navigate(link);
+            if (_webBrowser == null)
+            {
+                _webView.CoreWebView2.Navigate(link);
+            }
+            else
+            {
+                _webBrowser.Navigate(link);
+            }
+
         }
 
         public void OnBackButtonClick(object sender, RoutedEventArgs e)
