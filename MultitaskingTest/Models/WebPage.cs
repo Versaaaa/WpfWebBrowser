@@ -18,13 +18,8 @@ namespace MultitaskingTest.Models
 {
     public class WebPage
     {
-        public int BufferLenght { get; } = 30;
-        public int Redirects { get; set; } = -1;
-        public List<string> BackBuffer { get; set; } = new List<string>();
-        public List<string> ForwardBuffer { get; set; } = new List<string>();
         public string CurrentLink { get; set; } = "https://www.google.com/";
 
-        WebBrowser _webBrowser;
         WebView2 _webView;
         Button _refreshButton;
         Button _forwardButton;
@@ -32,19 +27,6 @@ namespace MultitaskingTest.Models
         TextBox _searchBar;
         TabItem _tabItem;
 
-        bool _isNewLink = false;
-
-        public WebPage(WebBrowser webBrowser, Button refreshButton, Button forwardButton, Button backButton, TextBox searchBar, TabItem tabItem)
-        {
-            _webBrowser = webBrowser;
-            _refreshButton = refreshButton;
-            _forwardButton = forwardButton;
-            _backButton = backButton;
-            _searchBar = searchBar;
-            _tabItem = tabItem;
-            InitializeCommon();
-            Navigate(CurrentLink);
-        }
         public WebPage(WebView2 webView, Button refreshButton, Button forwardButton, Button backButton, TextBox searchBar, TabItem tabItem)
         {
             _webView = webView;
@@ -58,6 +40,10 @@ namespace MultitaskingTest.Models
 
         public void InitializeCommon()
         {
+            _tabItem.Header = "New Tab";
+            _tabItem.MaxWidth = 125;
+            _tabItem.Width = 200;
+
             _backButton.HorizontalAlignment = HorizontalAlignment.Left;
             _backButton.Margin = new Thickness(3, 3, 0, 0);
             _backButton.VerticalAlignment = VerticalAlignment.Top;
@@ -65,7 +51,6 @@ namespace MultitaskingTest.Models
             _backButton.Width = 20;
             _backButton.IsEnabled = false;
             _backButton.Content = "<-";
-            _backButton.Click += OnBackButtonClick;
 
             _forwardButton.HorizontalAlignment = HorizontalAlignment.Left;
             _forwardButton.Margin = new Thickness(28, 3, 0, 0);
@@ -74,7 +59,6 @@ namespace MultitaskingTest.Models
             _forwardButton.Width = 20;
             _forwardButton.IsEnabled = false;
             _forwardButton.Content = "->";
-            _forwardButton.Click += OnForwardButtonClick;
 
             _refreshButton.HorizontalAlignment = HorizontalAlignment.Left;
             _refreshButton.Margin = new Thickness(53, 3, 0, 0);
@@ -82,61 +66,50 @@ namespace MultitaskingTest.Models
             _refreshButton.Height = 20;
             _refreshButton.Width = 20;
             _refreshButton.Content = "@";
-            _refreshButton.Click += OnRefreshButtonClick;
 
             _searchBar.Margin = new Thickness(85, 3, 29, 0);
             _searchBar.VerticalAlignment = VerticalAlignment.Top;
             _searchBar.Height = 20;
             _searchBar.TextWrapping = TextWrapping.NoWrap;
-            _searchBar.KeyDown += OnNavigateBarEnter;
+
+            _webView.Margin = new Thickness(0, 26, 0, 0);
         }
 
         public async void Initialize()
         {
-            _webView.Margin = new Thickness(0, 26, 0, 0);
+            InitializeCommon();
 
             await _webView.EnsureCoreWebView2Async();
 
-            _webView.NavigationStarting += OnNavigationStarting;
-            _webView.SourceChanged += OnSourceChanged;
-            _webView.NavigationCompleted += OnNavigationComplete;
+            _backButton.Click += OnBackButtonClick;
+            _forwardButton.Click += OnForwardButtonClick;
+            _refreshButton.Click += OnRefreshButtonClick;
+            _searchBar.KeyDown += OnNavigateBarEnter;
 
-            InitializeCommon();
+            _webView.CoreWebView2.NavigationStarting += OnNavigationStarting;
+            _webView.CoreWebView2.NavigationCompleted += OnNavigationComplete;
+            _webView.CoreWebView2.HistoryChanged += OnHistoryChanged;
+
             Navigate(CurrentLink);
         }
-
-
-        #region WebBrowser Events
-        public void OnNavigating(object sender, NavigatingCancelEventArgs e)
-        {
-            _OnNavigating(e.Uri.ToString());
-        }
-        public void OnNavigated(object sender, NavigationEventArgs e)
-        {
-            _OnNavigated();
-        }
-        public void OnLoaded(object sender, EventArgs e)
-        {
-            ChangeTitle(((HTMLDocument)_webBrowser.Document).title);
-        }
-        #endregion
 
         #region WebView2 Events
         public void OnNavigationStarting(object sender, CoreWebView2NavigationStartingEventArgs e)
         {
             _OnNavigating(e.Uri);
         }
-        public void OnSourceChanged(object sender, CoreWebView2SourceChangedEventArgs e)
-        {
-            _OnNavigated();
-        }
         public void OnNavigationComplete(object sender, CoreWebView2NavigationCompletedEventArgs e)
         {
             ChangeTitle(_webView.CoreWebView2.DocumentTitle);
         } 
+
+        public void OnHistoryChanged(object sender, object e)
+        {
+            _forwardButton.IsEnabled = _webView.CoreWebView2.CanGoForward;
+            _backButton.IsEnabled = _webView.CoreWebView2.CanGoBack;
+        }
+
         #endregion
-
-
         public void ChangeTitle(string newTitle)
         {
             _tabItem.Header = newTitle;
@@ -144,35 +117,9 @@ namespace MultitaskingTest.Models
 
         public void _OnNavigating(string newUri)
         {
-            if (_isNewLink)
-            {
-                _forwardButton.IsEnabled = false;
-                ForwardBuffer.Clear();
-                _backButton.IsEnabled = true;
-                BackBuffer.Add(CurrentLink);
-                if (BackBuffer.Count > BufferLenght)
-                {
-                    BackBuffer.RemoveAt(0);
-                }
-                Redirects += 1;
-            }
             CurrentLink = newUri;
             _searchBar.Text = CurrentLink;
         }
-        public void _OnNavigated()
-        {
-            if (_isNewLink && Redirects > 0)
-            {
-                if (Redirects > BufferLenght)
-                {
-                    Redirects = BufferLenght;
-                }
-                BackBuffer.RemoveRange(BackBuffer.Count - Redirects, Redirects);
-            }
-            Redirects = -1;
-            _isNewLink = true;
-        }
-
 
         public void OnNavigateBarEnter(object sender, RoutedEventArgs e)
         {
@@ -185,56 +132,28 @@ namespace MultitaskingTest.Models
                 {
                     link = "https://www.google.com/search?q=" + link;
                 }
-                Redirects = -1;
                 Navigate(link);
             }
         }
 
         public void Navigate(string link)
         {
-            if (_webBrowser == null)
-            {
-                _webView.CoreWebView2.Navigate(link);
-            }
-            else
-            {
-                _webBrowser.Navigate(link);
-            }
-
+            _webView.CoreWebView2.Navigate(link);
         }
 
         public void OnBackButtonClick(object sender, RoutedEventArgs e)
         {
-            _forwardButton.IsEnabled = true;
-            ForwardBuffer.Add(CurrentLink);
-            var link = BackBuffer[BackBuffer.Count-1];
-            BackBuffer.Remove(link);
-            if (BackBuffer.Count < 1)
-            {
-                _backButton.IsEnabled = false;
-            }
-            _isNewLink = false;
-            Navigate(link);
+            _webView.CoreWebView2.GoBack();
         }
 
         public void OnForwardButtonClick(object sender, RoutedEventArgs e)
         {
-            _backButton.IsEnabled = true;
-            BackBuffer.Add(CurrentLink);
-            var link = ForwardBuffer[ForwardBuffer.Count - 1];
-            ForwardBuffer.Remove(link);
-            if(ForwardBuffer.Count < 1)
-            {
-                _forwardButton.IsEnabled = false;
-            }
-            _isNewLink = false;
-            Navigate(link);
+            _webView.CoreWebView2.GoForward();
         }
 
         public void OnRefreshButtonClick(object sender, RoutedEventArgs e)
         {
-            _isNewLink = false;
-            Navigate(CurrentLink);
+            _webView.CoreWebView2.Reload();
         }
     }
 }
